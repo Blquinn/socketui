@@ -95,7 +95,6 @@ ApplicationWindow {
                 MouseArea {
                     id: mouseArea
                     anchors.fill: parent
-                    propagateComposedEvents: true
                     hoverEnabled: true
                 }
 
@@ -171,7 +170,9 @@ ApplicationWindow {
                 // Move this state into cpp (text)
                 id: sendMessageText
                 Layout.fillWidth: true
-                placeholderText: qsTr("Message Text")
+                placeholderText: messageTypeCombo.currentValue === MessageModel.Text
+                                 ? qsTr("Message")
+                                 : qsTr("Base64 Text")
                 selectByMouse: true
                 onAccepted: if (rootState.client.state === WebSocketClient.ConnectedState)
                                 msgRow.send()
