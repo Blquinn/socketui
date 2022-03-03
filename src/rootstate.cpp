@@ -3,7 +3,7 @@
 RootState::RootState(QObject *parent)
     : QObject{parent}
     , m_client(new WebSocketClient(this))
-    , m_messages(QList<MessageModel*>())
+    , m_messages(new MessageListModel())
 {
     QObject::connect(m_client, &WebSocketClient::textMessageReceived, this, [this](const QString &msg) {
         auto msgModel = new MessageModel(
@@ -29,17 +29,24 @@ RootState::RootState(QObject *parent)
                               this);
         appendMessage(msgModel);
     });
+    QObject::connect(m_client, &WebSocketClient::errorStringChanged, this, [this]() {
+        auto msgModel = new MessageModel(
+                              MessageModel::MessageType::Binary,
+                              QString("Socket Error: %1").arg(m_client->errorString()),
+                              MessageModel::Direction::System,
+                              this);
+        appendMessage(msgModel);
+    });
 }
 
-const QList<MessageModel*> &RootState::messages() const
+MessageListModel * RootState::messages() const
 {
     return m_messages;
 }
 
 void RootState::appendMessage(MessageModel* msg)
 {
-    m_messages.append(msg);
-    emit messagesChanged();
+    m_messages->append(msg);
 }
 
 WebSocketClient *RootState::client() const
@@ -67,4 +74,9 @@ void RootState::sendBinaryMessage(QString msg)
                               this);
         appendMessage(msgModel);
         m_client->sendBinaryMessage(msg);
+}
+
+void RootState::clearMessages()
+{
+    m_messages->clear();
 }

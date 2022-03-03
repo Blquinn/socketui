@@ -31,31 +31,21 @@ ApplicationWindow {
             id: connectionRow
             Layout.fillWidth: true
 
-            // TODO: Move to cpp
-            function connect() {
-                if (rootState.client.canConnect) {
-                    rootState.client.url = urlText.text
-                    rootState.client.active = true
-                } else {
-                    rootState.client.active = false
-                }
-            }
-
             TextField {
                 id: urlText
                 Layout.fillWidth: true
                 placeholderText: qsTr("Websocket URL (Must start with ws:// or wss://)")
-                text: 'ws://localhost:10000/'
+                text: rootState.client.url
+                onTextChanged: rootState.client.url = text
                 selectByMouse: true
-                onAccepted: if (rootState.client.canConnect)
-                                connectionRow.connect()
+                onAccepted: if (!rootState.client.active)
+                                rootState.client.connect()
             }
 
             Button {
                 id: connectButton
-                text: rootState.client.canConnect ? qsTr("Connect") : qsTr(
-                                                        "Disconnect")
-                onPressed: connectionRow.connect()
+                text: !rootState.client.active ? qsTr("Connect") : qsTr("Disconnect")
+                onPressed: rootState.client.active ? rootState.client.disconnect() : rootState.client.connect()
             }
         }
 
@@ -78,7 +68,7 @@ ApplicationWindow {
             Button {
                 Layout.alignment: Qt.AlignTrailing
                 text: qsTr("Clear")
-                onPressed: messages.clear()
+                onPressed: rootState.clearMessages()
 
                 ToolTip.text: qsTr("Clear the messages list.")
                 ToolTip.visible: hovered
@@ -127,26 +117,25 @@ ApplicationWindow {
 
                         font.family: monospaceFont
                         Layout.alignment: Qt.AlignTop
-                        color: dirColor(modelData.direction)
-                        text: `[${modelData.directionString}]`
+                        color: dirColor(direction)
+                        text: `[${directionString}]`
                     }
                     Label {
                         font.family: monospaceFont
                         Layout.alignment: Qt.AlignTop
-                        text: modelData.direction
-                              !== MessageModel.System ? qsTr(`(${modelData.typeString})`) : `     `
+                        text: direction
+                              !== MessageModel.System ? qsTr(`(${typeString})`) : `     `
                     }
                     Label {
                         Layout.fillWidth: true
                         font.family: monospaceFont
-                        text: modelData.payload
+                        text: payload
                         wrapMode: Text.Wrap
                     }
                 }
             }
 
-            // TODO: Only scroll down if view is already positioned at the end.
-            onCountChanged: Qt.callLater(listView.positionViewAtEnd)
+            onCountChanged: if (listView.atYEnd) Qt.callLater(listView.positionViewAtEnd)
 
             ScrollBar.vertical: ScrollBar {}
         }
@@ -165,6 +154,7 @@ ApplicationWindow {
                 sendMessageText.text = ''
             }
 
+            // Move this state into cpp
             ComboBox {
                 id: messageTypeCombo
                 valueRole: "value"
@@ -178,6 +168,7 @@ ApplicationWindow {
                     }]
             }
             TextField {
+                // Move this state into cpp (text)
                 id: sendMessageText
                 Layout.fillWidth: true
                 placeholderText: qsTr("Message Text")

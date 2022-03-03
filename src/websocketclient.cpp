@@ -5,25 +5,19 @@
 WebSocketClient::WebSocketClient(QObject *parent) : QObject(parent)
     , m_client(new QWebSocket(QString(), QWebSocketProtocol::VersionLatest, this))
     , m_url("")
-    , m_active(false)
-    , m_state((SocketState) m_client->state())
 {
-//    QObject::connect(m_client, &QWebSocket::stateChanged, this, &WebSocketClient::setState);
     QObject::connect(m_client, &QWebSocket::stateChanged, this, [this](QAbstractSocket::SocketState state){
-        setState((WebSocketClient::SocketState) state);
+        emit stateChanged();
     });
-
     QObject::connect(m_client, &QWebSocket::binaryMessageReceived, this, [this](const QByteArray &arr) {
         qDebug() << "Got binary ws message" << arr.toBase64();
         emit binaryMessageReceived(QString::fromUtf8(arr.toBase64()));
     });
-
     QObject::connect(m_client, &QWebSocket::textMessageReceived, this, [this](const QString &str) {
         qDebug() << "Got text ws message" << str;
         emit textMessageReceived(str);
     });
-    // TODO: Get errors
-//    QObject::connect(m_client, &QWebSocket::error, this, &WebSocketClient::onClientError);
+    QObject::connect(m_client, SIGNAL(error(QAbstractSocket::SocketError)), this, SLOT(onClientError(QAbstractSocket::SocketError)));
 }
 
 const QString &WebSocketClient::url() const
@@ -41,55 +35,22 @@ void WebSocketClient::setUrl(const QString &newUrl)
 
 bool WebSocketClient::active() const
 {
-    return m_active;
+    return m_client->state() != QAbstractSocket::UnconnectedState;
 }
 
-void WebSocketClient::setActive(bool newActive)
+WebSocketClient::SocketState WebSocketClient::state() const
 {
-    if (m_active == newActive)
-        return;
-
-    // Connect to url
-    if (canConnect()) {
-        m_client->open(m_url);
-    } else {
-        m_client->close();
-    }
-
-    m_active = newActive;
-    emit activeChanged();
+    return (SocketState) m_client->state();
 }
 
-const WebSocketClient::SocketState &WebSocketClient::state() const
+QString WebSocketClient::errorString() const
 {
-    return m_state;
-}
-
-void WebSocketClient::setState(const SocketState &newState)
-{
-    auto ns = (SocketState) newState;
-    if (m_state == ns)
-        return;
-
-    m_state = ns;
-    emit stateChanged();
-}
-
-const QString &WebSocketClient::errorString() const
-{
-    return m_errorString;
-}
-
-void WebSocketClient::setErrorString(const QString &newErrorString)
-{
-    if (m_errorString == newErrorString)
-        return;
-    m_errorString = newErrorString;
-    emit errorStringChanged();
+    return m_client->errorString();
 }
 
 void WebSocketClient::onClientError(QAbstractSocket::SocketError error)
 {
+    emit errorStringChanged();
 }
 
 const QString &WebSocketClient::stateString() const
@@ -103,7 +64,7 @@ const QString &WebSocketClient::stateString() const
     static const QString closing = QStringLiteral("Closing");
     static const QString unknown = QStringLiteral("Unknown");
 
-    switch (m_state)
+    switch (state())
     {
     case UnconnectedState:
         return unconnected;
@@ -124,11 +85,6 @@ const QString &WebSocketClient::stateString() const
     }
 }
 
-bool WebSocketClient::canConnect() const
-{
-    return m_state == UnconnectedState;
-}
-
 void WebSocketClient::sendTextMessage(QString msg)
 {
     m_client->sendTextMessage(msg);
@@ -138,4 +94,20 @@ void WebSocketClient::sendBinaryMessage(QString msg)
 {
     auto bts = QByteArray::fromBase64(msg.toUtf8());
     m_client->sendBinaryMessage(bts);
+}
+
+void WebSocketClient::connect()
+{
+    if (active())
+        return;
+
+    m_client->open(m_url);
+}
+
+void WebSocketClient::disconnect()
+{
+    if (!active())
+        return;
+
+    m_client->close();
 }

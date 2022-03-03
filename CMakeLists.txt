@@ -9,6 +9,7 @@ find_package(Qt6 6.2 COMPONENTS Quick QuickControls2 WebSockets REQUIRED)
 
 qt_add_executable(appsocketui
     src/main.cpp
+    src/messagelistmodel.cpp
     src/messagemodel.cpp
     src/rootstate.cpp
     src/websocketclient.cpp
